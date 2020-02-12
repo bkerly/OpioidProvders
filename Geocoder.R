@@ -185,9 +185,7 @@ df3 <- bind_cols(df,df2) %>%
   rename(lon = lon1, lat = lat1)
 ColoradoDATAGeoTagged <- ColoradoDATA %>%
   filter(!is.na(lat)) %>%
-  bind_rows(df3) %>%
-  select(-lat_min.y,-lat_max.y,
-         -lon_min.y,-lon_max.y)
+  bind_rows(.,df3)
 
 write.csv(ColoradoOTP,"Downloads/ColoradoOTPGeoTagged.csv")
 write.csv(ColoradoDATAGeoTagged,"Downloads/ColoradoDATAProvidersGeoTagged.csv")
