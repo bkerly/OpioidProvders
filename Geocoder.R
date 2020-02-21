@@ -6,6 +6,7 @@ library(tidyverse)
 library(tmaptools)
 library(XML)
 library(ggmap)
+library(tmap)
 
 #Reads in the soure data for OTPs
 ColoradoOTP <- read_csv("Downloads/ColoradoOTP.csv")
@@ -27,36 +28,9 @@ ColoradoOTP$AddressFull <- paste(ColoradoOTP$Street,
                                  ColoradoOTP$City,ColoradoOTP$State,
                                  ColoradoOTP$Zipcode,sep = ", ")
 
-
-#Runs the query for OTP
-ColoradoOTP <- geocode_OSM(ColoradoOTP$AddressFull) %>%
-  rename(AddressFull = query) %>%
-  left_join(ColoradoOTP,., by = "AddressFull")
-
-#Reads in the source data for DATA providers
-ColoradoDATA <- read_csv("Downloads/ColoradoDATAJoined.csv")
-
-#Trims out irrelevant information, like suite and apartment numebr
-ColoradoDATA$Address <- ColoradoDATA$Address %>%
-  gsub("Suite.*","",.) %>%
-  gsub("Ste.*","",.) %>%
-  gsub("Unit.*","",.) %>%
-  gsub("#.*","",.) %>%
-  gsub("Mailstop.*","",.) %>%
-  gsub("Mail Stop.*","",.) %>%
-  gsub("Apt.*","",.) %>%
-  gsub("Apartment.*","",.) %>%
-  gsub(",.*","",.)
-
-#Puts all the address query information into one column
-ColoradoDATA$AddressFull <- paste(ColoradoDATA$Address,
-                                  ColoradoDATA$City,
-                                  ColoradoDATA$State,
-                                  ColoradoDATA$`Postal Code`)
-
 #Adds a 1 second pauase between queries of teh geocode_OSM() funciton
 GeocodeWithPause <- function (q, projection = NULL, return.first.only = TRUE, details = FALSE, 
-          as.data.frame = NA, as.sf = FALSE, server = "http://nominatim.openstreetmap.org") 
+                              as.data.frame = NA, as.sf = FALSE, server = "http://nominatim.openstreetmap.org") 
 {
   n <- length(q)
   q2 <- gsub(" ", "+", enc2utf8(q), fixed = TRUE)
@@ -160,6 +134,45 @@ GeocodeWithPause <- function (q, projection = NULL, return.first.only = TRUE, de
   }
 }
 
+#Runs the query for OTP
+ColoradoOTP <- geocode_OSM(ColoradoOTP$AddressFull) %>%
+  rename(AddressFull = query) %>%
+  left_join(ColoradoOTP,., by = "AddressFull")
+
+#Runs the query using Google's API for where OSM fails
+df <- ColoradoOTP %>%
+  filter(is.na(lat))
+df2 <- geocode(df$AddressFull)
+df3 <- bind_cols(df,df2) %>%
+  select(-lat,-lon)%>%
+  rename(lon = lon1, lat = lat1)
+ColoradoOTPGeoTagged <- ColoradoOTP %>%
+  filter(!is.na(lat)) %>%
+  bind_rows(.,df3)
+
+#Reads in the source data for DATA providers
+ColoradoDATA <- read_csv("Downloads/ColoradoDATAJoined.csv")
+
+#Trims out irrelevant information, like suite and apartment numebr
+ColoradoDATA$Address <- ColoradoDATA$Address %>%
+  gsub("Suite.*","",.) %>%
+  gsub("Ste.*","",.) %>%
+  gsub("Unit.*","",.) %>%
+  gsub("#.*","",.) %>%
+  gsub("Mailstop.*","",.) %>%
+  gsub("Mail Stop.*","",.) %>%
+  gsub("Apt.*","",.) %>%
+  gsub("Apartment.*","",.) %>%
+  gsub(",.*","",.)
+
+#Puts all the address query information into one column
+ColoradoDATA$AddressFull <- paste(ColoradoDATA$Address,
+                                  ColoradoDATA$City,
+                                  ColoradoDATA$State,
+                                  ColoradoDATA$`Postal Code`)
+
+
+
 #Runs the query for DATA providers
 ColoradoDATA <- GeocodeWithPause(ColoradoDATA$AddressFull) %>%
   rename(AddressFull = query) %>%
@@ -187,5 +200,5 @@ ColoradoDATAGeoTagged <- ColoradoDATA %>%
   filter(!is.na(lat)) %>%
   bind_rows(.,df3)
 
-write.csv(ColoradoOTP,"Downloads/ColoradoOTPGeoTagged.csv")
+write.csv(ColoradoOTPGeoTagged,"Downloads/ColoradoOTPGeoTagged.csv")
 write.csv(ColoradoDATAGeoTagged,"Downloads/ColoradoDATAProvidersGeoTagged.csv")
