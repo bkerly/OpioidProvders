@@ -1,4 +1,6 @@
-rm(ls(all.names = TRUE))
+remove(list = ls())
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 # Load the relevant libraries - do this every time
 library(lubridate)
@@ -28,16 +30,17 @@ co18$centroids <- st_transform(co18, 29101) %>%
   st_geometry() 
 CTCoords <- do.call(rbind, st_geometry(co18$centroids)) %>%
   as.data.frame() %>%
-  `colnames<-`(c("lat","lon"))
+  `colnames<-`(c("lon","lat"))
 CTCoords <- bind_cols(co17,CTCoords,id=NULL) %>%
   select("GEOID","lat","lon")
 
-deaths <- read_csv("/Users/brianerly/BEEFERS/OpioidProvders/Data/co_opioid_death_1418.csv")
+deaths <- read_csv("Data/co_opioid_death_1418.csv")
 deaths$d <- ifelse(deaths$d == ".",1,deaths$d)
 deaths$d <- as.numeric(deaths$d)
 deaths <- left_join(deaths,CTCoords,by=c("tractid"="GEOID")) %>%
   as.data.frame() %>%
-  select("tractid","d","lat","lon")
+  select("tractid","d","lat","lon") %>%
+  filter(nchar(tractid)>10)
 
 
 DATAproviders <- read_csv("Data/ColoradoDATAProvidersGeoTagged.csv")
@@ -54,9 +57,15 @@ col4 = "#CC0000"
 
 ggmap::register_google(key = "AIzaSyD5w9yNOufvfRxcdGX0TlTZV6nIU63vTEk")
 
-m <- get_map(getbb("Colorado"),source="stamen",maptype = "toner-background")
-ggmap(m) + 
-  geom_point(data=deaths, aes(x=lon, y=lat, color = "Death_Locations"))+
-  geom_point(data=DATAproviders, aes(x=lon, y=lat, color = "DATA_Provider_Locations"))+
-  geom_point(data=OTPs, aes(x = lon, y= lat, color= "OTP_Locations"))
+#Add in weightings for deaths
+deaths2 <- with(deaths, deaths[rep(1:nrow(deaths), d),])
+
+m <- get_stamenmap(getbb("Colorado"),source="stamen",maptype = "toner",zoom=8)
+ggmap(m) +
+  stat_density2d(data=deaths2, aes(x=lon, y=lat, fill = ..level.., alpha = ..level..), bins=10, geom = 'polygon')+
+  scale_fill_gradient(low = "blue", high = "red") +
+  scale_alpha(range = c(0.05, 0.8), guide = FALSE) +
+  geom_point(data=deaths2, aes(x=lon, y=lat, alpha = 1, color = "Death_Locations"),position="jitter")+
+  geom_point(data=DATAproviders, aes(x=lon, y=lat, alpha = 1, color = "DATA_Provider_Locations"))+
+  geom_point(data=OTPs, aes(x = lon, y= lat, alpha = 1, color= "OTP_Locations"))
 
