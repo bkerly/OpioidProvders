@@ -131,26 +131,44 @@ for(i in 1:nrow(DeathsSRC)){
 
 #For each Death, pick the nearest 5 OTP
 NearestOTPs <- LinDistDeathOTP %>%
-  arrange(desc(Distance)) %>%
+  arrange((Distance)) %>%
   group_by(DeathTractID) %>%
-  slice(1:5)
+  slice(1:5) %>%
+  as.data.frame()
 
 #Rejoin in the lon and lat of the deaths and OTPs
 NearestOTPs <- left_join(NearestOTPs,DeathsSRC,
                          by=c("DeathTractID" = "tractid")) %>%
   left_join(OTPDst,by="OTPName") %>%
-  `colnames<-`c(DeathTractID,OTPName,Distance,DeathLon,DeathLat,OTPLon,OTPLat)
+  `colnames<-`(c("DeathTractID","OTPName","Distance","DeathLon","DeathLat","OTPLon","OTPLat"))
 
-#Finding the travel time between each death and the enarest 5 OTPs
-DeathsToOTPTime <- osrmTable(src = NearestOTPs[['DeathTractID','DeathLon','DeathLat']],
-                             dst = NearestOTPs[['OTPName','OTPLon','OTPLat']])
+#Making a little mapsky of lines between deaths and OTPs
+m <- get_stamenmap(getbb("Colorado"),source="stamen",maptype = "toner",zoom=7)
+ggmap(m) +
+  geom_segment(data=NearestOTPs, aes(x=DeathLon,y=DeathLat,xend=OTPLon,yend=OTPLat,color="black"),alpha=1/10) +
+    geom_point(data = NearestOTPs, aes(x=DeathLon,y=DeathLat,color="red"),shape=1) +
+  geom_point(data = NearestOTPs, aes(x=OTPLon,y=OTPLat,color="cyan"),shape=3)
+  
+#Finding the travel time between each death and the nearest 5 OTPs (but only the first 100 rows)
+DeathsToOTPTime <- osrmTable(src = select(head(NearestOTPs,100),'DeathTractID','DeathLon','DeathLat'),
+                             dst = select(head(NearestOTPs,100),'OTPName','OTPLon','OTPLat'))
+durations <- DeathsToOTPTime[["durations"]]
+sources<- DeathsToOTPTime[["sources"]]
+destinations <- DeathsToOTPTime[["destinations"]]
+#This output is weird and I'm still figuring out how to work with it
 
 #Pick the fastest travel time
 DeathsToNearestOTPTime <- DeathsToOTPTime %>%
-  arrange(desc(***)) %>%
+  arrange(Durations) %>%
   group_by(DeathTractID) %>%
   slice(1) %>%
   ungroup()
+
+#Rejoin in the lon and lat of the deaths and OTPs
+NearestOTPs <- left_join(NearestOTPs,DeathsSRC,
+                         by=c("DeathTractID" = "tractid")) %>%
+  left_join(OTPDst,by="OTPName") %>%
+  `colnames<-`(c("DeathTractID","OTPName","Distance","DeathLon","DeathLat","OTPLon","OTPLat"))
 
 ###Make a cool map of travel routes---
 #Rejoin in the lon and lat of the deaths and OTPs
