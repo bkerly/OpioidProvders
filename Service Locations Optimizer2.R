@@ -1,3 +1,6 @@
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+
 library(spData)
 library(lwgeom)
 library(tidycensus)
@@ -8,6 +11,7 @@ library(dplyr)
 #OD locations.  I am sure there is a better way, but
 #just deal with it
 
+options(tigris_use_cache = TRUE)
 census_api_key("efb75012a4507416a09b0fbd0c90b9b2b4582632")
 co17 <- get_acs(geography = "tract", 
                 variables = c(totpop="B03002_001"), 
@@ -29,7 +33,7 @@ p<-co18[c(5,18,343),]
 
   #Convert to Geographic Object
 
-docs<-read.csv("/Users/ktsabin/Desktop/Brian Stuff/SalishRG/Opioid Provider Mapping/OpioidProvders/ColoradoOTPGeoTagged.csv")
+docs<-read.csv("Data/ColoradoOTPGeoTagged.csv")
 docs2<-docs[,c(2:3,11:12)]%>%distinct()
 docs3<-docs2[complete.cases(docs2),]
 docs4 <- st_as_sf(docs3, coords = c("lon", "lat"), crs = 4326)
